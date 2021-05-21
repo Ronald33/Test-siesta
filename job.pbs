@@ -1,52 +1,30 @@
 #!/bin/bash
-#PBS -N test-siesta
-#PBS -l walltime=120:00:00
-#PBS -l nodes=2:ppn=9
-#PBS -e $PBS_JOBID/output.log
-#PBS -o $PBS_JOBID/output.out
-cd $PBS_O_WORKDIR
+#SBATCH -J test-siesta
+#SBATCH --time=720:00:00
+#SBATCH -N 2
+#SBATCH --tasks-per-node=9
+#SBATCH -e output-%j.log
+#SBATCH -o output-%j.out
 
 # Cargando los modulos necesarios
-source /home/modules/opt/gcc-9.2.0/env.sh
-source /home/modules/opt/openmpi-3.1.6/env.sh
-source /home/modules/opt/OpenBLAS-0.3.9/env.sh
-source /home/modules/opt/siesta-4.1-b4/env.sh
-###################################################################################
+module load siesta/4.1-b4
 
-# Asignando las variables
-folder_results=results # nombre de la carpeta en donde se almacenara los resultados
-folder_to_process=to-process # nombre de la carpeta en donde se almacenara todos los ficheros utilizados por el job.
-###################################################################################
+FOLDER_RESULTS="results-${SLURM_JOB_ID}"
+FOLDER_TO_PROCESS="to-process"
+mkdir $FOLDER_RESULTS
 
-# Creando las carpetas
-base=$PBS_JOBID
-mkdir $base
-mkdir $base/$folder_results # Creamos la carpeta de resultados
-# mkdir $base/output # Creamos la carpeta de salida
-###################################################################################
+# Mostrando la informacion
+echo "El directorio de trabajo es: ${SLURM_SUBMIT_DIR}"
+NOW="$(date +'%d/%m/%Y %H:%M:%S')"
+echo "El job fue lanzado a las: $NOW"
+echo "El id del job es: $SLURM_JOB_ID"
+echo "Los resultados fueron almacenados en la carpeta: $FOLDER_RESULTS"
 
-# Mostrando informacion
-echo El directorio de trabajo es: $PBS_O_WORKDIR
-echo Los resultados son almacenados en: $PBS_O_WORKDIR/$folder_results
 echo La version de OpenMPI es: $(mpiexec --version | head -n 1 | cut -d " " -f 3)
-NP=$(wc -l < $PBS_NODEFILE)
-echo La cantidad de procesadores usados es: $NP
-###################################################################################
 
-# Utilizando scratch
-SCRDIR=/scratch/$USER/$PBS_JOBID
-mkdir -p $SCRDIR
-cp -r $folder_to_process $SCRDIR
-cd $SCRDIR/$folder_to_process
-###################################################################################
-
-# Ejecutando los comandos requeridos
+cd $FOLDER_TO_PROCESS
 cd h2o_dos
-mpirun -np $NP -machinefile $PBS_NODEFILE siesta < h2o_dos.fdf >& siesta.log
-###################################################################################
 
-#sleep 30
+mpirun siesta < h2o_dos.fdf >& siesta.log
 
-# Copiando los resultados del scratch a la carpeta de trabajo
-mv *log $PBS_O_WORKDIR/$base/$folder_results # copiamos los resultados
-rm -r $SCRDIR # Eliminamos los archivos de scratch
+mv *.log $SLURM_SUBMIT_DIR/$FOLDER_RESULTS
